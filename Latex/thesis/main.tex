@@ -1,0 +1,148 @@
+\documentclass[graybox,envcountchap,twoside,deutsch]{lrt_thesis}
+%====================================
+% Wenn die Arbeit extern erstellt wird, dann die obige Zeile
+% auskommentieren und die nachfolgende Zeile inkludieren:
+% \documentclass[graybox,envcountchap,deutsch,extern]{lrt_thesis}
+%====================================
+\usepackage{etex}
+\usepackage[ngerman]{babel}
+\usepackage{subfigure}
+\usepackage[fleqn]{amsmath}
+\usepackage{amsthm,amssymb,amsfonts}
+\usepackage[fleqn]{cases}
+\usepackage{tabularx}
+\usepackage{caption}
+\captionsetup{
+  format=hang,
+  %indent=1cm,
+  font=small,
+  justification=justified,
+  singlelinecheck=no}
+\usepackage{fancyhdr}
+\usepackage{multicol}
+\usepackage{longtable,booktabs}
+%----
+\usepackage[numbers]{natbib}
+\renewcommand{\bibnumfmt}[1]{#1.}%necessary to achieve correct
+                                %formatting of the bib entries
+%----
+\usepackage{dsfont}
+\usepackage[figuresright]{rotating}
+\usepackage{ifthen}
+\usepackage{trfsigns}
+\usepackage[bottom]{footmisc}% places footnotes at page bottom
+\usepackage[utf8]{inputenc}
+\usepackage{longtable}
+\usepackage{tikz}
+\usepackage{hyperref}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+%% the following commands are needed for some matlab2tikz features
+\usetikzlibrary{plotmarks}
+\usetikzlibrary{arrows.meta}
+\usepgfplotslibrary{patchplots}
+\usepackage{booktabs}
+
+%----
+
+%====================================
+%Abbreviations
+%====================================
+\renewcommand{\vec}[1]{\boldsymbol{#1}}
+
+\newcommand{\kuka}{KUKA LBR iiwa}
+\newcommand{\R}{\mathbb{R}}
+
+%====================================
+%Page layout
+%====================================
+
+%------------------------------------
+%Geometry
+%------------------------------------
+\newif\ifmypdf
+\ifx\pdfoutput\undefined
+  \mypdffalse
+  \setlength{\paperwidth}{210mm}
+  \setlength{\paperheight}{297mm}
+\else
+  \mypdftrue
+  \usepackage{hyperref}
+  \hypersetup{pdftitle={},
+    pdfsubject={},
+    pdfauthor={VORNAME NAME},
+    pdfkeywords={},
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    plainpages=false,
+    a4paper=true,
+    plainpages=false,
+    pdfpagelabels=true
+  }
+  \setlength{\paperwidth}{210mm}
+  \setlength{\paperheight}{297mm}
+\fi
+
+%====================================
+%Babel
+%====================================
+\selectlanguage{ngerman}
+
+%====================================
+%Main
+%====================================
+%
+
+\begin{document}
+%
+\author{Fabian Heuer}
+\title{Flachheitsbasierte Trajektorienplanung und Vorsteuerung in kartesischen Koordinaten für einen redundanten Roboterarm }
+\date{Juni 2019}
+\thesistype{Masterarbeit}
+\advisor{Ergänzen} %Nur bei externen Arbeiten (siehe Zeilen 3-5 dieser
+                   %Datei)
+\examiner{Prof. Dr.-Ing habil Thomas Meurer, M.Sc. Manuel Amersdorffer}
+\abgabedatum{19.06.2019}
+\maketitle
+
+%------------------------------------
+\fronttitle
+\frontmatter
+\tableofcontents
+\mainmatter
+%------------------------------------
+
+%====================================
+%  MAIN PARTS
+%------------------------------------
+
+\graphicspath{{figures/}}
+\input{abstract}
+\input{chap1}
+\input{KinematischesModel}
+
+%====================================
+%  APPENDIX
+%------------------------------------
+\input{appendix}
+
+
+%====================================
+%  BIBLIOGRAPHY
+%------------------------------------
+\bibliography{main}
+\bibliographystyle{lrt_thesis}
+
+%====================================
+%  CLOSING
+%------------------------------------
+\finalmatter
+
+\end{document}
+ 
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
