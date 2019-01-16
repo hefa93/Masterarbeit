@@ -15,7 +15,7 @@ Kuka_LBR_param_simu.DataType  = 'Bus: Kuka_LBR_param_simu_Type';
 
 % endtime trajectory
 
- T = 3;
+ T = 0.5;
 
 %Initial state
 
@@ -39,15 +39,15 @@ KUKA_LBR_x0 = [x1_0 x2_0 x3_0 x4_0 x5_0 x6_0 x7_0 x8_0 x9_0 x10_0 x11_0 x12_0 x1
 
 %Initialization of the desired endeffector position and orientation
 
-vecPosDes   = [0 0 Kuka_LBR_param.dblLink23Len +  Kuka_LBR_param.dblLink45Len +  Kuka_LBR_param.dblLink67Len];
-rpyDes      = [113.31 -34.42 21.31];
+vecPosDes   = [0 0 Kuka_LBR_param.dblLinkBase1Len + Kuka_LBR_param.dblLink23Len +  Kuka_LBR_param.dblLink45Len +  Kuka_LBR_param.dblLink67Len];
+rpyDes      = [0 0 0];
 rpyDes      = rpyDes * pi/180;
 
 
 
 %Global confifuration
 
-vecGlobalConfig = [1 1 1];
+vecGlobalConfig = [1; 1; 1];
 elbowAngle = 0;
 elbowAngle = elbowAngle * pi/180;
 

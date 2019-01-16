@@ -1,4 +1,4 @@
-function [vecJointPos] = KUKA_LBR_iiwa_inverse_kinematic(vecPosDes_,quatOriDes_,jointsNum_,KUKA_LBR_param_,ellbowAngle_,vecGlobalConfig_)
+function [vecJointPos,vecJoint2to6]  = KUKA_LBR_iiwa_inverse_kinematic(vecPosDes_,quatOriDes_,KUKA_LBR_param_,ellbowAngle_,vecGlobalConfig_)
 
  
 %  * Creation of a new function that calculates the jointAngles of the robot arm
@@ -28,9 +28,21 @@ else
 end
 
 
-vecJointPos = [1,jointsNum_];
-rotMatDes = quat2rotm(quatOriDes_);
+vecJointPos = [1,1,1,1,1,1,1];
 
+qw = quatOriDes_(1);
+qx = quatOriDes_(2);
+qy = quatOriDes_(3);
+qz = quatOriDes_(4);
+
+rotMatDes = [1-2*qy^2-2*qz^2, 2*qx*qy-2*qz*qw, 2*qx*qz+2*qy*qw; ...
+             2*qx*qy+2*qz*qw, 1-2*qx^2-2*qz^2, 2*qy*qz-2*qx*qw; ...
+             2*qx*qz-2*qy*qw, 2*qy*qz+2*qx*qw, 1-2*qx^2-2*qy^2];
+         
+% rotMatDes = [0.8425, 0.1196, 0.5253; ...
+%              0.2901, 0.7210, -0.6293; ...
+%              -0.454, 0.6826, 0.5727];
+%          
 limitsUpper = zeros(7,1);
 limitsLower = zeros(7,1);
 
@@ -52,14 +64,14 @@ limitsLower(6,1) = KUKA_LBR_param_.dblJoint6PosMin;
 limitsLower(7,1) = KUKA_LBR_param_.dblJoint7PosMin;
 
 %Vector from Base to shoulder
-vecBasetoJoint2 = [0,0,KUKA_LBR_param.dblLinkBase1Len];
+vecBasetoJoint2 = [0,0,KUKA_LBR_param_.dblLinkBase1Len]';
 
 %Vector from Wrist to endeffector
-vecJoint6to7 = [0,0,KUKA_LBR_param.dblLink67Len];
+vecJoint6to7 = [0,0,KUKA_LBR_param_.dblLink67Len]';
 
 %vector from shoulder to wrist
 
-vecJoint2to6 = vecPosDes_ - vecBasetoJoint2 - (rotMatDes * vecJoint6to7);
+vecJoint2to6 = vecPosDes_' - vecBasetoJoint2 - (rotMatDes * vecJoint6to7);
 
 %calculate unit vector from shoulder to wrist
 
@@ -79,13 +91,13 @@ skewMatDirJoint2to6(3,1) = -vecDirectionJoint2To6(2,1);
 skewMatDirJoint2to6(3,2) = vecDirectionJoint2To6(1,1);
 skewMatDirJoint2to6(3,3) = 0;
 
-argument4 = (KUKA_LBR_param_.distJoint2To6.^2 - KUKA_LBR_param_.dblLink23Len.^2 - KUKA_LBR_param_.dblLink45Len.^2)/(2 * KUKA_LBR_param_.dblLink45Len *  KUKA_LBR_param_.dblLink23Len);
+argument4 = (distJoint2To6.^2 - KUKA_LBR_param_.dblLink23Len.^2 - KUKA_LBR_param_.dblLink45Len.^2)/(2 * KUKA_LBR_param_.dblLink45Len *  KUKA_LBR_param_.dblLink23Len);
 
-referenceAngle4 = ellbowUp * acos(checkArgument(argument4));
+referenceAngle4 = ellbowUp * real(acos(checkArgument(argument4)));
 
 if (referenceAngle4 > limitsUpper(4,1) || referenceAngle4 < limitsLower(4,1) || isnan(referenceAngle4))
-    ME =  MException(2,'limits of joint Angle 4 exceeded');
-        throw(ME)
+    error('limits of joint Angle 4 exceeded');
+        
 
 end
 
@@ -115,71 +127,176 @@ rotMatEllbowAngle = IMat3x3 + sin(ellbowAngle_) * skewMatDirJoint2to6 + (1-cos(e
 
 veclinklengths = [KUKA_LBR_param_.dblLinkBase1Len; 0; KUKA_LBR_param_.dblLink23Len; 0; KUKA_LBR_param_.dblLink45Len; 0; KUKA_LBR_param_.dblLink67Len];
 
-vecRotbetweenJoints = [-pi/2, pi/2,pi/2,-pi/2,-pi/2,pi/2,0];
+vecRotbetweenJoints = [-pi/2, pi/2, pi/2, -pi/2, -pi/2, pi/2, 0];
 
-refTransMat0to1 = denavitHardenbergTransformation(0, vecRotbetweenJoints(1,1), veclinklengths(1), referenceAngle1);
+refTransMat0to1 = denavitHardenbergTransformation(vecRotbetweenJoints(1,1), referenceAngle1, veclinklengths(1));
 
-refTransMat1to2 = denavitHardenbergTransformation(0, vecRotbetweenJoints(1,2), veclinklengths(2), referenceAngle2);
+refTransMat1to2 = denavitHardenbergTransformation(vecRotbetweenJoints(1,2), referenceAngle2, veclinklengths(2));
 
-refTransMat2to3 = denavitHardenbergTransformation(0, vecRotbetweenJoints(1,3), veclinklengths(3), referenceAngle3);
+refTransMat2to3 = denavitHardenbergTransformation(vecRotbetweenJoints(1,3), referenceAngle3, veclinklengths(3));
 
-refTransMat3to4 = denavitHardenbergTransformation(0, vecRotbetweenJoints(1,4), veclinklengths(4), referenceAngle4);
+refTransMat3to4 = denavitHardenbergTransformation(vecRotbetweenJoints(1,4), referenceAngle4, veclinklengths(4));
 
-refTransMat0to3 = refTransMat0to1 + refTransMat1to2 + refTransMat2to3;
+refTransMat0to3 = refTransMat0to1 * refTransMat1to2 * refTransMat2to3;
 
-refTransMat0to4 = refTransMat0to3 + refTransMat3to4;
+refTransMat0to4 = refTransMat0to3 * refTransMat3to4;
 
 
 %Identification of the rotation matrices of the refernce syste%
 
-refRotMat0to3 = refTransMat0to3(1:3,1:3);
+refRotMat0to3 = transpose(refTransMat0to3(1:3,1:3));
+refRotMat0to4 = transpose(refTransMat0to4(1:3,1:3));
 
-refRotMat0to4 = refTransMat0to4(1:3,1:3);
+% refRotMat0to3 = [cos(referenceAngle1).*cos(referenceAngle2),(-1).*sin(referenceAngle1),cos(referenceAngle1).*sin(referenceAngle2);... 
+%                 cos(referenceAngle2).*sin(referenceAngle1),cos(referenceAngle1),sin(referenceAngle1).*sin(referenceAngle2); ...
+%                   (-1).*sin(referenceAngle2),0,cos(referenceAngle2)];
+% 
+% refRotMat0to4 = [cos(referenceAngle1).*cos(referenceAngle2).*cos(referenceAngle3)+(-1).*sin(referenceAngle1).*sin(referenceAngle3),cos(referenceAngle1).*sin(referenceAngle2),cos(referenceAngle3).*sin(referenceAngle1)+cos(referenceAngle1).*cos(referenceAngle2).*sin(referenceAngle3);cos(referenceAngle2).*cos(referenceAngle3).*sin(referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle3),sin(referenceAngle1).*sin(referenceAngle2),(-1).*cos(referenceAngle1).*cos(referenceAngle3)+cos(referenceAngle2).*sin(referenceAngle1).*sin(referenceAngle3);(-1).*cos(referenceAngle3).*sin(referenceAngle2),cos(referenceAngle2),(-1).*sin(referenceAngle2).*sin(referenceAngle3)];
+% 
+% refRotMat0to4=[cos(referenceAngle3).*cos(referenceAngle4).*(cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin(referenceAngle2))+((-1).*cos( ...
+%   referenceAngle2).*sin(referenceAngle1)+(-1).*cos(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle4),(cos(referenceAngle1).*cos(referenceAngle2)+(-1).* ...
+%   sin(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle3),(-1).*cos(referenceAngle4).*((-1).*cos(referenceAngle2).*sin(referenceAngle1)+(-1).* ...
+%   cos(referenceAngle1).*sin(referenceAngle2))+cos(referenceAngle3).*(cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin(referenceAngle2)).* ...
+%   sin(referenceAngle4);cos(referenceAngle3).*cos(referenceAngle4).*(cos(referenceAngle2).*sin(referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle2))+(cos(referenceAngle1).* ...
+%   cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle4),(cos(referenceAngle2).*sin(referenceAngle1)+cos(referenceAngle1).*sin( ...
+%   referenceAngle2)).*sin(referenceAngle3),(-1).*cos(referenceAngle4).*(cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin(referenceAngle2))+ ...
+%   cos(referenceAngle3).*(cos(referenceAngle2).*sin(referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle4);(-1).*cos(referenceAngle4).* ...
+%   sin(referenceAngle3),cos(referenceAngle3),(-1).*sin(referenceAngle3).*sin(referenceAngle4)];
+% 
+% 
+% 
+% refRotMat0to3=[cos(referenceAngle3).*(cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin(referenceAngle2)),(-1).*cos(referenceAngle2).*sin( ...
+%   referenceAngle1)+(-1).*cos(referenceAngle1).*sin(referenceAngle2),(cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin(referenceAngle2)).* ...
+%   sin(referenceAngle3);cos(referenceAngle3).*(cos(referenceAngle2).*sin(referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle2)),cos(referenceAngle1).*cos(referenceAngle2)+( ...
+%   -1).*sin(referenceAngle1).*sin(referenceAngle2),(cos(referenceAngle2).*sin(referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle3);(-1) ...
+%   .*sin(referenceAngle3),0,cos(referenceAngle3)];
 
+
+% refRotMat0to4=[cos(referenceAngle3).*cos(referenceAngle4).*(cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin(referenceAngle2))+((-1).*cos( ...
+%   referenceAngle2).*sin(referenceAngle1)+(-1).*cos(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle4),(-1).*(cos(referenceAngle1).*cos(referenceAngle2)+( ...
+%   -1).*sin(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle3),cos(referenceAngle4).*((-1).*cos(referenceAngle2).*sin(referenceAngle1)+(-1).* ...
+%   cos(referenceAngle1).*sin(referenceAngle2))+(-1).*cos(referenceAngle3).*(cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin( ...
+%   referenceAngle2)).*sin(referenceAngle4);cos(referenceAngle3).*cos(referenceAngle4).*(cos(referenceAngle2).*sin(referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle2))+( ...
+%   cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle4),(-1).*(cos(referenceAngle2).*sin( ...
+%   referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle3),cos(referenceAngle4).*(cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1) ...
+%   .*sin(referenceAngle2))+(-1).*cos(referenceAngle3).*(cos(referenceAngle2).*sin(referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle4);( ...
+%   -1).*cos(referenceAngle4).*sin(referenceAngle3),(-1).*cos(referenceAngle3),sin(referenceAngle3).*sin(referenceAngle4)];
+% 
+% refRotMat0to3=[cos(referenceAngle3).*(cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin(referenceAngle2)),(-1).*cos(referenceAngle2).*sin( ...
+%   referenceAngle1)+(-1).*cos(referenceAngle1).*sin(referenceAngle2),(cos(referenceAngle1).*cos(referenceAngle2)+(-1).*sin(referenceAngle1).*sin(referenceAngle2)).* ...
+%   sin(referenceAngle3);cos(referenceAngle3).*(cos(referenceAngle2).*sin(referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle2)),cos(referenceAngle1).*cos(referenceAngle2)+( ...
+%   -1).*sin(referenceAngle1).*sin(referenceAngle2),(cos(referenceAngle2).*sin(referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle2)).*sin(referenceAngle3);(-1) ...
+%   .*sin(referenceAngle3),0,cos(referenceAngle3)];
+
+ R411 =cos(referenceAngle4).*(cos(referenceAngle1).*cos(referenceAngle2).*cos(referenceAngle3)+(-1).*sin(referenceAngle1).*sin(referenceAngle3))+cos(referenceAngle1).* ...
+  sin(referenceAngle2).*sin(referenceAngle4);
+  
+  R412 = cos(referenceAngle1).*cos(referenceAngle4).*sin(referenceAngle2)+(-1).*(cos(referenceAngle1).*cos(referenceAngle2).*cos( ...
+  referenceAngle3)+(-1).*sin(referenceAngle1).*sin(referenceAngle3)).*sin(referenceAngle4);
+  
+  R413 = cos(referenceAngle3).*sin(referenceAngle1)+cos(referenceAngle1).*cos(referenceAngle2).* ...
+  sin(referenceAngle3);
+  
+  R421 = cos(referenceAngle4).*(cos(referenceAngle2).*cos(referenceAngle3).*sin(referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle3))+sin(referenceAngle1).* ...
+  sin(referenceAngle2).*sin(referenceAngle4);
+  
+  R422 = cos(referenceAngle4).*sin(referenceAngle1).*sin(referenceAngle2)+(-1).*(cos(referenceAngle2).*cos(referenceAngle3).*sin( ...
+  referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle3)).*sin(referenceAngle4);
+  
+  R423 = (-1).*cos(referenceAngle1).*cos(referenceAngle3)+cos(referenceAngle2).*sin(referenceAngle1).* ...
+  sin(referenceAngle3);
+  
+  R431 =(-1).*cos(referenceAngle3).*cos(referenceAngle4).*sin(referenceAngle2)+cos(referenceAngle2).*sin(referenceAngle4);
+  
+  R432 = cos(referenceAngle2).*cos(referenceAngle4)+cos(referenceAngle3).*sin(referenceAngle2).*sin(referenceAngle4);
+  
+  R433 =(-1).*sin(referenceAngle2).*sin(referenceAngle3);
+
+  refRotMat0to4 = [R411 R412 R413; R421 R422 R423; R431 R432 R433];
+
+
+  
+  R311 = cos(referenceAngle1).*cos(referenceAngle2).*cos(referenceAngle3)+(-1).*sin(referenceAngle1).*sin(referenceAngle3),
+      
+  R312 = (-1).*cos(referenceAngle3).*sin(referenceAngle1) +(-1).*cos(referenceAngle1).*cos(referenceAngle2).*sin(referenceAngle3);
+  
+  R313 = cos(referenceAngle1).*sin(referenceAngle2);
+  
+   R321 = cos(referenceAngle2).*cos(referenceAngle3).*sin( ...
+  referenceAngle1)+cos(referenceAngle1).*sin(referenceAngle3);
+  
+  R322 = cos(referenceAngle1).*cos(referenceAngle3)+(-1).*cos(referenceAngle2).*sin(referenceAngle1).*sin(referenceAngle3);
+
+  R323 = sin(referenceAngle1).*sin(referenceAngle2);
+  
+  R331 = (-1).*cos(referenceAngle3).*sin(referenceAngle2);
+  
+  R332 = sin(referenceAngle2).*sin(referenceAngle3);
+  
+  R333 = cos(referenceAngle2);
+
+  refRotMat0to3 = [R311 R312 R313; R321 R322 R323; R331 R332 R333];
+  
+  
 coeffMatAs = skewMatDirJoint2to6 * refRotMat0to3;
 
 coeffMatBs = - (skewMatDirJoint2to6 * skewMatDirJoint2to6) * refRotMat0to3;
 
-coeffMatCs = (IMat3x3 + skewMatDirJoint2to6) * refRotMat0to3;
+coeffMatCs = (vecDirectionJoint2To6 *vecDirectionJoint2To6' ) * refRotMat0to3;
 
-jointAngle1 = atan2(lefty * (-coeffMatAs(2,2) * sin(ellbowAngle_) ...
+argument1Nominator = -coeffMatAs(2,2) * sin(ellbowAngle_) ...
+         - coeffMatBs(2,2) * cos(ellbowAngle_) - coeffMatCs(2,2);
+     
+     if argument1Nominator < 1e-4 && argument1Nominator > -1e-4
+        jointAngle1 = 0;
+     else
+        jointAngle1 = atan2(lefty * (-coeffMatAs(2,2) * sin(ellbowAngle_) ...
          - coeffMatBs(2,2) * cos(ellbowAngle_) - coeffMatCs(2,2)), ...
-          lefty * (coeffMatAs(1,2) * sin(ellbowAngle) ... 
+          lefty * (coeffMatAs(1,2) * sin(ellbowAngle_) ... 
           - coeffMatBs(1,2) * cos(ellbowAngle_) - coeffMatCs(1,2)));
-      
+     end  
 if (jointAngle1 > limitsUpper(1,1) || jointAngle1 < limitsLower(1,1)) 
- ME1 = MException(2,'Limits of joinAngle1 exceeded!');
-        throw(ME1)
+    error('Limits of joinAngle1 exceeded!');
+        
 end
 
-argument2 = -coeffMatAs(3,2) * sin(ellbowAngle) ...
-            - coeffMatBs(3,2) * cos(ellbowAngle) ...
-            - coeffMatCs(3,2);
+argument2 = coeffMatAs(3,2) * sin(ellbowAngle_) ...
+             + coeffMatBs(3,2) * cos(ellbowAngle_) ...
+             + coeffMatCs(3,2);
         
 jointAngle2 = lefty * acos(checkArgument(argument2));
 
 if (jointAngle2 > limitsUpper(2,1) || jointAngle2 < limitsLower(2,1))
-    ME2 = MException(3,'Limits of joinAngle2 exceeded!');
-        throw(ME2)
+    error('Limits of joinAngle2 exceeded!');
+        
 end
 
-jointAngle3 = atan2(lefty * coeffMatAs(3,3) * sin(ellbowAngle) ...
-                    + coeffMatBs(3,3) * cos(ellbowAngle) ...
-                    + coeffMatCs(2,2), ... 
-                    lefty * (-coeffMatAs(3,1) * sin(ellbowAngle)...
-                    - coeffMatBs(3,1) * cos(ellbowAngle) ...
+argument3Nominator = -lefty * (coeffMatAs(3,3) * sin(ellbowAngle_) ...
+                    + coeffMatBs(3,3) * cos(ellbowAngle_) ...
+                     + coeffMatCs(3,3));
+                 
+if argument3Nominator < 1e-4 && argument3Nominator > -1e-4
+    jointAngle3 = 0;
+    
+else
+jointAngle3 = atan2(-lefty * (coeffMatAs(3,3) * sin(ellbowAngle_) ...
+                    + coeffMatBs(3,3) * cos(ellbowAngle_) ...
+                     + coeffMatCs(3,3)), ... 
+                    lefty * (-coeffMatAs(3,1) * sin(ellbowAngle_)...
+                    - coeffMatBs(3,1) * cos(ellbowAngle_) ...
                     - coeffMatCs(3,1)));
+end
 
 if (jointAngle3 > limitsUpper(3,1) || jointAngle3 < limitsLower(3,1))
-    ME3 = MException(4,'Limits of joinAngle3 exceeded!');
-        throw(ME3)   
+   error('Limits of joinAngle3 exceeded!');
+        
 end
 
 jointAngle4 = referenceAngle4;
 
 if (jointAngle4 > limitsUpper(4,1) || jointAngle4 < limitsLower(4,1))
-    ME4 = MException(5,'Limits of joinAngle4 exceeded!');
-        throw(ME4)   
+    error('Limits of joinAngle4 exceeded!');
+      
 end
 
 rotMat0to3 = rotMatEllbowAngle * refRotMat0to3;
@@ -188,53 +305,89 @@ rotMat3to4 = transpose(rotMat0to3) * rotMat0to4;
 
 coeffMatAw = transpose(rotMat3to4) * transpose(coeffMatAs) * rotMatDes;
 coeffMatBw = transpose(rotMat3to4) * transpose(coeffMatBs) * rotMatDes;
-coeffMatCw = transpose(rotMat3to4) * transpose(coeffMatCs) * rotmatDes;
+coeffMatCw = transpose(rotMat3to4) * transpose(coeffMatCs) * rotMatDes;
+
 
 %Calculation of jointAngle5 with the coefficient matrices
-
-jointAngle5 = atan2(wristIn * coeffMatAw(2,3) * sin(ellbowAngle) ...
-              + coeefMatBw(2,3) * cos(ellbowAngle) ... 
+argument5Nominator = wristIn * coeffMatAw(2,3) * sin(ellbowAngle_) ...
+              + coeffMatBw(2,3) * cos(ellbowAngle_) ... 
+              + coeffMatCw(2,3);
+                 
+if argument5Nominator < 1e-4 && argument5Nominator > -1e-4
+    jointAngle5 = 0;    
+else
+    
+jointAngle5 = atan2(wristIn * coeffMatAw(2,3) * sin(ellbowAngle_) ...
+              + coeffMatBw(2,3) * cos(ellbowAngle_) ... 
               + coeffMatCw(2,3), ...
-              wristIn *(coeffMatAw(1,3) * sin(ellbowAngle) ...
-              + coeffMatBw(1,3) * cos(ellbowAngle) ...
+              wristIn *(coeffMatAw(1,3) * sin(ellbowAngle_) ...
+              + coeffMatBw(1,3) * cos(ellbowAngle_) ...
               + coeffMatCw(1,3)));
 
-
+end
 if (jointAngle5 > limitsUpper(5,1) || jointAngle5 < limitsLower(5,1))
-      ME5 = MException(6,'Limits of joinAngle5 exceeded!');
-        throw(ME5)   
+     error('Limits of joinAngle5 exceeded!');
+      
 end 
+
+
     
-argument6 = coeffMatAw(3,3) * sin(ellbowAngle) ...
-            + coeffMatBw(3,3) * cos(ellbowAngle) ...
+argument6 = coeffMatAw(3,3) * sin(ellbowAngle_) ...
+            + coeffMatBw(3,3) * cos(ellbowAngle_) ...
                   + coeffMatCw(3,3);
 
 jointAngle6 = wristIn * acos(checkArgument(argument6));
 
 if (jointAngle6 > limitsUpper(6,1) || jointAngle6 < limitsLower(6,1))
-      ME6 = MException(7,'Limits of joinAngle6 exceeded!');
-        throw(ME6)   
+      error('Limits of joinAngle6 exceeded!');
+      
 end 
 
-jointAngle7 = atan2(wristIn * (coeffmatAw(3,2) * sin(ellbowAngle) ...
-            + coeffMatBw(3,2) * cos(ellbowAngle) ...
+argument7Nominator = wristIn * (coeffMatAw(3,2) * sin(ellbowAngle_) ...
+            + coeffMatBw(3,2) * cos(ellbowAngle_) ...
+            + coeffMatCw(3,2));
+                 
+if argument7Nominator < 1e-4 && argument7Nominator > -1e-4
+    jointAngle7 = 0;    
+else
+jointAngle7 = atan2(wristIn * (coeffMatAw(3,2) * sin(ellbowAngle_) ...
+            + coeffMatBw(3,2) * cos(ellbowAngle_) ...
             + coeffMatCw(3,2)), ...
-            wristIn * (-coeffMatAw(3,1) * sin(ellbowAngle) ...
-            - coeffMatBw(3,1) * cos(ellbowAngle)...
+            wristIn * (-coeffMatAw(3,1) * sin(ellbowAngle_) ...
+            - coeffMatBw(3,1) * cos(ellbowAngle_)...
             -coeffMatCw(3,1)));
-
-if (jointAngle7 > limitsUpper(7,1) || jointAngle7 < limitsLower(7,1))
-      ME7 = MException(8,'Limits of joinAngle7 exceeded!');
-        throw(ME7)   
 end
 
-    vecJointPos(1,1) = jointAngle1;
-    vecJointPos(1,2) = jointAngle2;
-    vecJointPos(1,3) = jointAngle3;
-    vecJointPos(1,4) = -jointAngle4;
-    vecJointPos(1,5) = jointAngle5;
-    vecJointPos(1,6) = jointAngle6;
-    vecJointPos(1,7) = jointAngle7;
+if (jointAngle7 > limitsUpper(7,1) || jointAngle7 < limitsLower(7,1))
+       error('Limits of joinAngle7 exceeded!');
+        
+end
+
+
+ 
+
+R4711= cos(jointAngle5)*cos(jointAngle6)*cos(jointAngle7)+(-1)*sin(jointAngle5)*sin(jointAngle7) ;     
+R4712=(-1)*cos(jointAngle7)*sin(jointAngle5) +(-1)*cos(jointAngle5)*cos(jointAngle6)*sin(jointAngle7) ;   
+R4713 = cos(jointAngle5)*sin(jointAngle6); 
+R4721= cos(jointAngle6)*cos(jointAngle7)*sin(jointAngle5)+cos(jointAngle5)*sin(jointAngle7) ;
+R4722= cos(jointAngle5)*cos(jointAngle7)+(-1)*cos(jointAngle6)*sin(jointAngle5)*sin(jointAngle7) ;   
+R4723 = sin(jointAngle5)*sin(jointAngle6);
+R4731 =(-1)*cos(jointAngle7)*sin(jointAngle6);
+R4732 = sin(jointAngle6)*sin(jointAngle7) ;
+R4733 = cos(jointAngle6);
+
+R47 = [R4711 R4712 R4713;...
+       R4721 R4722 R4723;...
+       R4731 R4732 R4733];
+R47_ref =transpose(coeffMatAw*sin(ellbowAngle_)+coeffMatBw*cos(ellbowAngle_)+coeffMatCw);
+
+    vecJointPos(1) = jointAngle1;
+    vecJointPos(2) = jointAngle2;
+    vecJointPos(3) = jointAngle3;
+    vecJointPos(4) = jointAngle4;
+    vecJointPos(5) = jointAngle5;
+    vecJointPos(6) = jointAngle6;
+    vecJointPos(7) = jointAngle7;
 end
 
 
@@ -242,7 +395,7 @@ end
 function [rotmat] = denavitHardenbergTransformation(alpha_,theta_,d_)
 
 
-matRot = rotx(theta_) * rotz(alpha_);
+matRot = rotz(theta_) *rotx(alpha_);
 
 vecTrans = [0;0;d_];
 
@@ -256,22 +409,34 @@ function [argument_] = checkArgument(argument_)
 
 if argument_ < -1.0
     if argument_ < -1.001
-        ME = MException(1,'invalid argument');
-        throw(ME)
+        error('Invalid Argument');
+        
     else
         argument_ = -1.0;
     end
 elseif argument_ > 1.0
         if argument_ > 1.001
-            ME = MException(1,'invalid argument');
-        throw(ME)
-        end
+            error('Invalid Argument');
+        
+        
     else
         argument_ = 1.0;
-
+        end
 end
 end
 
+
+function rotxAlpha  = rotx(alpha_)
+rotxAlpha = [1 0           0; ...
+             0 cos(alpha_) -sin(alpha_); ... 
+             0 sin(alpha_) cos(alpha_)];
+end
+
+function rotzTheta  = rotz(theta_)
+rotzTheta = [cos(theta_) -sin(theta_) 0; ... 
+             sin(theta_) cos(theta_)  0; ...
+             0           0            1];
+end
 
 
 
